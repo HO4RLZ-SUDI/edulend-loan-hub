@@ -1,11 +1,23 @@
 import { useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger
+} from "@/components/ui/dropdown-menu";
+import { useToast } from "@/components/ui/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
 import { Menu, X, GraduationCap } from "lucide-react";
 
 const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
+  const { user, profile, loading, signOutUser } = useAuth();
+  const { toast } = useToast();
 
   const navigation = [
     { name: "หน้าหลัก", href: "/" },
@@ -14,6 +26,26 @@ const Navbar = () => {
   ];
 
   const isActive = (href: string) => location.pathname === href;
+
+  const initials = profile?.name
+    ?.split(" ")
+    .map((namePart) => namePart[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
+
+  const dashboardPath = profile?.role === "admin" ? "/admin-dashboard" : "/student-dashboard";
+
+  const handleSignOut = async () => {
+    try {
+      await signOutUser();
+      toast({ title: "ออกจากระบบแล้ว" });
+      navigate("/login");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "ไม่สามารถออกจากระบบได้";
+      toast({ title: "เกิดข้อผิดพลาด", description: message, variant: "destructive" });
+    }
+  };
 
   return (
     <nav className="sticky top-0 z-50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b border-border">
@@ -46,12 +78,44 @@ const Navbar = () => {
 
           {/* Desktop Auth Buttons */}
           <div className="hidden md:flex items-center space-x-4">
-            <Button variant="ghost" asChild>
-              <Link to="/login">เข้าสู่ระบบ</Link>
-            </Button>
-            <Button asChild>
-              <Link to="/register">สมัครสมาชิก</Link>
-            </Button>
+            {user && profile ? (
+              <div className="flex items-center space-x-3">
+                <Button variant="ghost" asChild>
+                  <Link to={dashboardPath}>แดชบอร์ด</Link>
+                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" className="flex items-center gap-2">
+                      <Avatar className="h-8 w-8">
+                        <AvatarImage src={profile.photoURL ?? undefined} alt={profile.name} />
+                        <AvatarFallback>{initials ?? "U"}</AvatarFallback>
+                      </Avatar>
+                      <div className="flex flex-col items-start">
+                        <span className="text-sm font-medium">{profile.name}</span>
+                        <span className="text-xs text-muted-foreground">{profile.role === "admin" ? "ผู้ดูแล" : "นักเรียน"}</span>
+                      </div>
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-56">
+                    <DropdownMenuItem asChild>
+                      <Link to={dashboardPath}>ไปยังแดชบอร์ด</Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={handleSignOut}>ออกจากระบบ</DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            ) : (
+              !loading && (
+                <>
+                  <Button variant="ghost" asChild>
+                    <Link to="/login">เข้าสู่ระบบ</Link>
+                  </Button>
+                  <Button asChild>
+                    <Link to="/register">สมัครสมาชิก</Link>
+                  </Button>
+                </>
+              )
+            )}
           </div>
 
           {/* Mobile menu button */}
@@ -90,16 +154,47 @@ const Navbar = () => {
                 </Link>
               ))}
               <div className="pt-2 border-t space-y-2">
-                <Button variant="ghost" className="w-full justify-start" asChild>
-                  <Link to="/login" onClick={() => setIsMenuOpen(false)}>
-                    เข้าสู่ระบบ
-                  </Link>
-                </Button>
-                <Button className="w-full" asChild>
-                  <Link to="/register" onClick={() => setIsMenuOpen(false)}>
-                    สมัครสมาชิก
-                  </Link>
-                </Button>
+                {user && profile ? (
+                  <>
+                    <Button
+                      variant="ghost"
+                      className="w-full justify-start"
+                      asChild
+                    >
+                      <Link
+                        to={dashboardPath}
+                        onClick={() => setIsMenuOpen(false)}
+                      >
+                        แดชบอร์ด
+                      </Link>
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      className="w-full justify-start"
+                      onClick={() => {
+                        setIsMenuOpen(false);
+                        void handleSignOut();
+                      }}
+                    >
+                      ออกจากระบบ
+                    </Button>
+                  </>
+                ) : (
+                  !loading && (
+                    <>
+                      <Button variant="ghost" className="w-full justify-start" asChild>
+                        <Link to="/login" onClick={() => setIsMenuOpen(false)}>
+                          เข้าสู่ระบบ
+                        </Link>
+                      </Button>
+                      <Button className="w-full" asChild>
+                        <Link to="/register" onClick={() => setIsMenuOpen(false)}>
+                          สมัครสมาชิก
+                        </Link>
+                      </Button>
+                    </>
+                  )
+                )}
               </div>
             </div>
           </div>
